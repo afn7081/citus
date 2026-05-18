@@ -22,6 +22,8 @@
 #include "distributed/citus_safe_lib.h"
 #include "distributed/listutils.h"
 
+/* GUC: skip sorting for trivially sorted lists (0 or 1 elements) */
+bool SkipSortForTrivialLists = true;
 
 /*
  * SortList takes in a list of void pointers, and sorts these pointers (and the
@@ -40,6 +42,13 @@ SortList(List *pointerList, int (*comparisonFunction)(const void *, const void *
 	List *sortedList = NIL;
 	uint32 arrayIndex = 0;
 	uint32 arraySize = (uint32) list_length(pointerList);
+
+	/* lists with 0 or 1 elements are already sorted */
+	if (SkipSortForTrivialLists && arraySize <= 1)
+	{
+		return pointerList;
+	}
+
 	void **array = (void **) palloc0(arraySize * sizeof(void *));
 
 	void *pointer = NULL;

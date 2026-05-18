@@ -163,6 +163,7 @@ typedef struct ListCellAndListWrapper
 		 var ## PositionDoNotUse ++)
 
 /* utility functions declaration shared within this module */
+extern bool SkipSortForTrivialLists;
 extern List * SortList(List *pointerList,
 					   int (*ComparisonFunction)(const void *, const void *));
 extern void ** PointerArrayFromList(List *pointerList);

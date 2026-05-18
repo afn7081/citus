@@ -1002,6 +1002,18 @@ RegisterCitusConfigVariables(void)
 		GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE,
 		NULL, NULL, NULL);
 
+	DefineCustomBoolVariable(
+		"citus.skip_sort_for_trivial_lists",
+		gettext_noop("Skip sorting for lists with 0 or 1 elements."),
+		gettext_noop("When enabled, SortList returns immediately for "
+					 "trivially sorted lists, avoiding unnecessary "
+					 "memory allocation and qsort overhead."),
+		&SkipSortForTrivialLists,
+		true,
+		PGC_USERSET,
+		0,
+		NULL, NULL, NULL);
+
 	DefineCustomIntVariable(
 		"citus.background_task_queue_interval",
 		gettext_noop("Time to wait between checks for scheduled background tasks."),
