@@ -56,6 +56,8 @@ extern int SearchCachedShardInterval(Datum partitionColumnValue,
 									 int shardCount, Oid shardIntervalCollation,
 									 FmgrInfo *compareFunction);
 extern bool SingleReplicatedTable(Oid relationId);
+extern void InvalidateSingleReplicatedTableCache(void);
+extern bool CacheSingleReplicatedTableResult;
 
 
 #endif /* SHARDINTERVAL_UTILS_H_ */

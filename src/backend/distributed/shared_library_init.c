@@ -115,6 +115,7 @@
 #include "distributed/worker_manager.h"
 #include "distributed/worker_protocol.h"
 #include "distributed/worker_shard_visibility.h"
+#include "distributed/shardinterval_utils.h"
 
 /* marks shared object as one loadable by the postgres version compiled against */
 PG_MODULE_MAGIC;
@@ -923,6 +924,21 @@ RegisterCitusConfigVariables(void)
 		gettext_noop("Bypasses commutativity checks when enabled"),
 		NULL,
 		&AllModificationsCommutative,
+		false,
+		PGC_USERSET,
+		GUC_STANDARD,
+		NULL, NULL, NULL);
+
+	DefineCustomBoolVariable(
+		"citus.cache_single_replicated_table_result",
+		gettext_noop("Caches the result of SingleReplicatedTable per relation "
+					 "to avoid iterating all shard placements on every DML."),
+		gettext_noop("When enabled, the replication factor check is computed "
+					 "once per relation and cached for the session. The cache "
+					 "is invalidated when metadata changes (node/placement DDL). "
+					 "This significantly reduces CPU overhead for high-throughput "
+					 "DML workloads on single-replicated distributed tables."),
+		&CacheSingleReplicatedTableResult,
 		false,
 		PGC_USERSET,
 		GUC_STANDARD,

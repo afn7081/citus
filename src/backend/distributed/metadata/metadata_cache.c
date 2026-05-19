@@ -4959,6 +4959,9 @@ InvalidateMetadataSystemCache(void)
 	workerNodeHashValid = false;
 	LocalGroupId = -1;
 	LocalNodeId = -1;
+
+	/* Invalidate cached SingleReplicatedTable results */
+	InvalidateSingleReplicatedTableCache();
 }
 
 

@@ -28,6 +28,58 @@
 #include "distributed/shardinterval_utils.h"
 #include "distributed/worker_protocol.h"
 
+/*
+ * GUC: when true, cache the result of SingleReplicatedTable per relation
+ * within the session. The cache is invalidated when the metadata system cache
+ * is invalidated (e.g., node/placement changes via DDL). This avoids
+ * iterating all shard placements on every DML for tables whose replication
+ * factor never changes during normal operation.
+ */
+bool CacheSingleReplicatedTableResult = false;
+
+typedef struct SingleReplicatedCacheEntry
+{
+	Oid relationId;
+	bool isSingleReplicated;
+} SingleReplicatedCacheEntry;
+
+static HTAB *SingleReplicatedCacheHash = NULL;
+
+static void
+EnsureSingleReplicatedCacheInitialized(void)
+{
+	if (SingleReplicatedCacheHash != NULL)
+	{
+		return;
+	}
+
+	HASHCTL info;
+	memset(&info, 0, sizeof(info));
+	info.keysize = sizeof(Oid);
+	info.entrysize = sizeof(SingleReplicatedCacheEntry);
+	info.hcxt = CacheMemoryContext;
+
+	SingleReplicatedCacheHash = hash_create("SingleReplicatedTable cache",
+											64, &info,
+											HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
+}
+
+
+/*
+ * InvalidateSingleReplicatedTableCache resets the cached results for
+ * SingleReplicatedTable. Should be called when metadata changes
+ * (e.g., node add/remove, placement changes).
+ */
+void
+InvalidateSingleReplicatedTableCache(void)
+{
+	if (SingleReplicatedCacheHash != NULL)
+	{
+		hash_destroy(SingleReplicatedCacheHash);
+		SingleReplicatedCacheHash = NULL;
+	}
+}
+
 
 /*
  * SortedShardIntervalArray sorts the input shardIntervalArray. Shard intervals with
@@ -457,10 +509,29 @@ CalculateUniformHashRangeIndex(int hashedValue, int shardCount)
  * SingleReplicatedTable checks whether all shards of a distributed table, do not have
  * more than one replica. If even one shard has more than one replica, this function
  * returns false, otherwise it returns true.
+ *
+ * When citus.cache_single_replicated_table_result is enabled, the result is cached
+ * per relation in a session-level hash table to avoid repeatedly iterating all shard
+ * placements on every DML. The cache is invalidated when metadata changes.
  */
 bool
 SingleReplicatedTable(Oid relationId)
 {
+	/* Check cache if GUC is enabled */
+	if (CacheSingleReplicatedTableResult)
+	{
+		EnsureSingleReplicatedCacheInitialized();
+
+		bool found = false;
+		SingleReplicatedCacheEntry *entry =
+			(SingleReplicatedCacheEntry *) hash_search(SingleReplicatedCacheHash,
+													   &relationId, HASH_FIND, &found);
+		if (found)
+		{
+			return entry->isSingleReplicated;
+		}
+	}
+
 	List *shardList = LoadShardList(relationId);
 	List *shardPlacementList = NIL;
 
@@ -470,6 +541,7 @@ SingleReplicatedTable(Oid relationId)
 		return false;
 	}
 
+	bool result = true;
 	List *shardIntervalList = LoadShardList(relationId);
 	uint64 *shardIdPointer = NULL;
 	foreach_ptr(shardIdPointer, shardIntervalList)
@@ -479,9 +551,20 @@ SingleReplicatedTable(Oid relationId)
 
 		if (list_length(shardPlacementList) != 1)
 		{
-			return false;
+			result = false;
+			break;
 		}
 	}
 
-	return true;
+	/* Store in cache if GUC is enabled */
+	if (CacheSingleReplicatedTableResult)
+	{
+		bool found = false;
+		SingleReplicatedCacheEntry *entry =
+			(SingleReplicatedCacheEntry *) hash_search(SingleReplicatedCacheHash,
+													   &relationId, HASH_ENTER, &found);
+		entry->isSingleReplicated = result;
+	}
+
+	return result;
 }
