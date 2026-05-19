@@ -746,6 +746,39 @@ SerializeNonCommutativeWrites(List *shardIntervalList, LOCKMODE lockMode)
 
 
 /*
+ * SerializeNonCommutativeWritesWithReplicationInfo is a variant of
+ * SerializeNonCommutativeWrites that accepts the pre-computed result
+ * of whether the modified table is replicated. This avoids redundantly
+ * calling SingleReplicatedTable for every shard when the caller has
+ * already determined the replication status.
+ */
+void
+SerializeNonCommutativeWritesWithReplicationInfo(List *shardIntervalList,
+												 LOCKMODE lockMode,
+												 bool modifiedTableReplicated)
+{
+	if (shardIntervalList == NIL)
+	{
+		return;
+	}
+
+	/*
+	 * If the modified table is not replicated (replication factor == 1 and not
+	 * a reference table), we know AnyTableReplicated would return false for the
+	 * same shard list. Skip the per-shard iteration entirely.
+	 */
+	if (!modifiedTableReplicated)
+	{
+		LockShardListResources(shardIntervalList, lockMode);
+		return;
+	}
+
+	/* Fall back to the full path for replicated tables */
+	SerializeNonCommutativeWrites(shardIntervalList, lockMode);
+}
+
+
+/*
  * AnyTableReplicated iterates on the shard list and returns true
  * if any of the shard is a replicated table. We qualify replicated
  * tables as any reference table or any distributed table with

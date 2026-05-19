@@ -190,6 +190,9 @@ extern void LockShardsInPlacementListMetadata(List *shardPlacementList,
 extern void LockTransactionRecovery(LOCKMODE lockMode);
 
 extern void SerializeNonCommutativeWrites(List *shardIntervalList, LOCKMODE lockMode);
+extern void SerializeNonCommutativeWritesWithReplicationInfo(List *shardIntervalList,
+															LOCKMODE lockMode,
+															bool modifiedTableReplicated);
 extern void LockRelationShardResources(List *relationShardList, LOCKMODE lockMode);
 extern List * GetSortedReferenceShardIntervals(List *relationList);
 

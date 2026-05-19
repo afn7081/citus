@@ -19,6 +19,9 @@
 #include "distributed/resource_lock.h"
 #include "distributed/transaction_management.h"
 
+/* GUC: skip redundant SingleReplicatedTable checks in lock acquisition */
+bool SkipRedundantReplicationChecks = false;
+
 
 /*
  * AcquireExecutorShardLocksForExecution acquires advisory lock on shard IDs
@@ -246,8 +249,21 @@ AcquireExecutorShardLocksForExecution(RowModifyLevel modLevel, List *taskList)
 	 */
 	LockParentShardResourceIfPartition(anchorShardIntervalList, lockMode);
 
-	/* Acquire distribution execution locks on the affected shards */
-	SerializeNonCommutativeWrites(anchorShardIntervalList, lockMode);
+	/*
+	 * When SkipRedundantReplicationChecks is enabled, pass the already-computed
+	 * modifiedTableReplicated to avoid recomputing SingleReplicatedTable
+	 * for every shard inside SerializeNonCommutativeWrites.
+	 */
+	if (SkipRedundantReplicationChecks)
+	{
+		SerializeNonCommutativeWritesWithReplicationInfo(anchorShardIntervalList,
+														lockMode,
+														modifiedTableReplicated);
+	}
+	else
+	{
+		SerializeNonCommutativeWrites(anchorShardIntervalList, lockMode);
+	}
 
 	if (relationRowLockList != NIL)
 	{

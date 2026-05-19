@@ -26,5 +26,7 @@ extern void LockPartitionsInRelationList(List *relationIdList, LOCKMODE lockmode
 extern void LockPartitionRelations(Oid relationId, LOCKMODE lockMode);
 extern void LockPartitionsForDistributedPlan(DistributedPlan *distributedPlan);
 
+extern bool SkipRedundantReplicationChecks;
+
 
 #endif /* DISTRIBUTED_EXECUTION_LOCKS_H */

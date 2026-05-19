@@ -65,6 +65,7 @@
 #include "distributed/coordinator_protocol.h"
 #include "distributed/cte_inline.h"
 #include "distributed/distributed_deadlock_detection.h"
+#include "distributed/distributed_execution_locks.h"
 #include "distributed/distributed_planner.h"
 #include "distributed/errormessage.h"
 #include "distributed/intermediate_result_pruning.h"
@@ -1355,6 +1356,20 @@ RegisterCitusConfigVariables(void)
 		true,
 		PGC_USERSET,
 		GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE,
+		NULL, NULL, NULL);
+
+	DefineCustomBoolVariable(
+		"citus.skip_redundant_replication_checks",
+		gettext_noop("Skips redundant SingleReplicatedTable calls during lock "
+					 "acquisition for multi-shard modifications on non-replicated "
+					 "tables, reducing CPU overhead."),
+		gettext_noop("When enabled, the result of the replication check computed "
+					 "early in lock acquisition is reused instead of recomputing "
+					 "it for every shard in SerializeNonCommutativeWrites."),
+		&SkipRedundantReplicationChecks,
+		false,
+		PGC_USERSET,
+		GUC_STANDARD,
 		NULL, NULL, NULL);
 
 	DefineCustomBoolVariable(
