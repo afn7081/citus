@@ -1398,17 +1398,6 @@ RegisterCitusConfigVariables(void)
 		NULL, NULL, NULL);
 
 	DefineCustomBoolVariable(
-		"citus.cache_local_plan_for_multi_shard_queries",
-		gettext_noop("Caches the local plan for the first shard and reuses it "
-					 "for subsequent shards in multi-shard modification queries."),
-		NULL,
-		&CacheLocalPlanForMultiShardQueries,
-		false,
-		PGC_USERSET,
-		GUC_STANDARD,
-		NULL, NULL, NULL);
-
-	DefineCustomBoolVariable(
 		"citus.enable_local_reference_table_foreign_keys",
 		gettext_noop("Enables foreign keys from/to local tables"),
 		gettext_noop("When enabled, foreign keys between local tables and reference "
