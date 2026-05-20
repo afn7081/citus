@@ -1359,6 +1359,20 @@ RegisterCitusConfigVariables(void)
 		NULL, NULL, NULL);
 
 	DefineCustomBoolVariable(
+		"citus.skip_outer_planner_index_paths",
+		gettext_noop("Skips index path generation during the outer standard_planner "
+					 "call for distributed DELETE/UPDATE queries."),
+		gettext_noop("When enabled, the index list is cleared before path generation "
+					 "in the outer planning call that Citus uses only for metadata "
+					 "extraction. This avoids expensive index cost estimation (e.g., "
+					 "RUM indexes) whose results are discarded by Citus anyway."),
+		&SkipOuterPlannerIndexPaths,
+		false,
+		PGC_USERSET,
+		GUC_STANDARD,
+		NULL, NULL, NULL);
+
+	DefineCustomBoolVariable(
 		"citus.skip_redundant_replication_checks",
 		gettext_noop("Skips redundant SingleReplicatedTable calls during lock "
 					 "acquisition for multi-shard modifications on non-replicated "
@@ -1379,6 +1393,17 @@ RegisterCitusConfigVariables(void)
 		NULL,
 		&EnableLocalExecution,
 		true,
+		PGC_USERSET,
+		GUC_STANDARD,
+		NULL, NULL, NULL);
+
+	DefineCustomBoolVariable(
+		"citus.cache_local_plan_for_multi_shard_queries",
+		gettext_noop("Caches the local plan for the first shard and reuses it "
+					 "for subsequent shards in multi-shard modification queries."),
+		NULL,
+		&CacheLocalPlanForMultiShardQueries,
+		false,
 		PGC_USERSET,
 		GUC_STANDARD,
 		NULL, NULL, NULL);

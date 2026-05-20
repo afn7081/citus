@@ -219,6 +219,8 @@ extern PlannedStmt * distributed_planner(Query *parse,
 										 int cursorOptions,
 										 ParamListInfo boundParams);
 
+extern bool SkipOuterPlannerIndexPaths;
+
 
 /*
  * Common hint message to workaround using postgres local and citus local tables
