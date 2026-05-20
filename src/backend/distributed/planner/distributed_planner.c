@@ -156,6 +156,12 @@ static bool CheckPostPlanDistribution(DistributedPlanningContext *planContext,
 									  bool isDistributedQuery,
 									  List *rangeTableList);
 
+/* GUC: skip index path generation during outer standard_planner for distributed modifies */
+bool SkipOuterPlannerIndexPaths = false;
+
+/* Flag to signal multi_get_relation_info_hook to clear indexlist */
+static bool SkipIndexPathsForCurrentPlanning = false;
+
 /* Distributed planner hook */
 PlannedStmt *
 distributed_planner(Query *parse,
@@ -271,10 +277,29 @@ distributed_planner(Query *parse,
 			 * Call into standard_planner because the Citus planner relies on both the
 			 * restriction information per table and parse tree transformations made by
 			 * postgres' planner.
+			 *
+			 * For distributed modify queries (DELETE/UPDATE), Citus only uses
+			 * metadata from the standard plan (targetlist, rtable, relationOids)
+			 * and discards the actual access path. Skip index path generation
+			 * via the get_relation_info_hook to avoid expensive index cost
+			 * estimation (e.g., RUM) that would be wasted work.
 			 */
+			bool skipIndexPaths = SkipOuterPlannerIndexPaths &&
+								 needsDistributedPlanning &&
+								 (planContext.query->commandType == CMD_UPDATE ||
+								  planContext.query->commandType == CMD_DELETE);
+
+			if (skipIndexPaths)
+			{
+				SkipIndexPathsForCurrentPlanning = true;
+			}
+
 			planContext.plan = standard_planner(planContext.query, NULL,
 												planContext.cursorOptions,
 												planContext.boundParams);
+
+			SkipIndexPathsForCurrentPlanning = false;
+
 			needsDistributedPlanning = CheckPostPlanDistribution(&planContext,
 																 needsDistributedPlanning,
 																 rangeTableList);
@@ -2107,6 +2132,18 @@ multi_get_relation_info_hook(PlannerInfo *root, Oid relationObjectId, bool inhpa
 {
 	if (!CitusHasBeenLoaded())
 	{
+		return;
+	}
+
+	/*
+	 * When planning the outer standard_planner call for a distributed modify,
+	 * Citus discards the access path entirely. Clear the index list so that
+	 * create_index_paths() exits immediately without evaluating any index
+	 * cost estimation (which can be expensive, e.g., RUM indexes).
+	 */
+	if (SkipIndexPathsForCurrentPlanning)
+	{
+		rel->indexlist = NIL;
 		return;
 	}
 
